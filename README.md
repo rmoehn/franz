@@ -2,6 +2,10 @@
 
 FIXME: description
 
+## Source of word list
+
+http://www-01.sil.org/linguistics/wordlists/english/, 2014-02-26
+
 ## Installation
 
 Download from http://example.com/FIXME.
