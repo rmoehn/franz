@@ -5,64 +5,62 @@
 (def many-words (clojure.string/split-lines
                   (slurp "/home/erle/Perl/franz/wordsEn.txt")))
 
-;(defn mapa-b
-;  "Map fn over the values from a (inclusive) to b (exclusive)."
-;  ([func a b]
-;    (mapa-b func a b 1))
-;  "Map fn over the values from a (inclusive) to b (exclusive), going in steps
-;  of size step."
-;  ([func a b step]
-;    (map fn (range a b step))))
-
-(defn suffixes [min-len lst]
-  "Return the proper suffixes (longest first) of lst with length >= min-len."
-  (map #(subvec lst %) (range 1 (- (count lst) min-len -1))))
-
-(defn prefixes [min-len lst]
-  "Return the proper prefixes (longest first) of lst with length >= min-len."
-  (map #(subvec lst 0 %) (reverse (range min-len (count lst)))))
-
-(defn sublists [min-len lst]
-  "Return a list of all sublists (longest first) of lst of length at least
-  min-len."
-  (mapcat #(partition % 1 lst) (reverse (range min-len (count lst)))))
-
-(defn contained-words [min-len superword]
-  "Returns a list of all the words w (length >= min-len) contained in
-  superword, that is superword matches the regex (Perlish syntax) /.+ $w
-  .+/x."
-  (map (partial apply str)
-       (sublists min-len
-                 (subs superword 1 (dec (count superword))))))
-
 (defn find-word [wordlist word]
   "Returns word if it is contained in wordlist, otherwise nil. wordlist must
   be ordered alphabetically."
   (if (>= (java.util.Collections/binarySearch wordlist word compare) 0)
     word))
 
-(defn find-word-containing-word [min-len wordlist]
-  "Returns a tuple of a word (length >= min-len) and a word that completely
-  contains it from wordlist. wordlist must be ordered alphabetically."
-  (let [superwords (shuffle (filter #(>= (count %) (+ 2 min-len)) wordlist))]
-    (some (fn [superword]
-        (some (fn [subword]
-                (if-let [existing-subword (find-word wordlist subword)]
-                  [superword existing-subword]))
-              (contained-words min-len superword)))
-      superwords)))
+(defn fixed-lower-pairs
+  "Returns a sequence of all ordered pairs with lower as left element and the
+  numbers from (lower + min-diff) to upper (inclusive) as right elements."
+  ([lower upper]
+   (fixed-lower-pairs lower upper 1))
+  ([lower upper min-diff]
+   {:pre [(<= lower upper)
+          (<= 0 min-diff)]
+    :post [(every? (fn [ [l u] ] (<= min-diff (- u l))) %)]}
+   (map (fn [u] [lower u]) (range (+ lower min-diff) (inc upper)))))
 
-(defn find-overlap [min-len wordlist word]
-  "If word is in wordlist and is constructed from the overlap of two words
-  (length >= min-len) in wordlist, returns a tuple of these words, otherwise
-  nil."
-  (let [in-list?    (fn [wv] (find-word wordlist wv))
-        wordvec     (vec word)
-        begin-words (filter in-list? (map (partial apply str) (prefixes min-len wordvec)))
-        end-words   (filter in-list? (map (partial apply str) (suffixes min-len wordvec)))]
-    (if (and (not-empty begin-words) (not-empty end-words))
-      [(first begin-words) (first end-words)])))
+(defn ordered-pairs
+  "Returns a sequence of all ordered pairs of the numbers from lower
+  (inclusive) to upper (inclusive), where the difference between the two
+  numbers is at least min-diff."
+  ([lower upper]
+   (ordered-pairs lower upper 1))
+  ([lower upper min-diff]
+   (mapcat #(fixed-lower-pairs % upper min-diff)
+           (range lower (inc upper)))))
 
+(defn overlapping-pairs
+  "Returns a sequence of pairs of overlapping intervals, i. e. pairs [p₁ p₂]
+  of ordered pairs p₁ = [l₁ u₁] and p₂ = [l₂ u₂], where l₂ ≦ u₁. See the pre-
+  and postconditions for a detailed specification."
+  [lower upper & {:keys [min-ludiff min-overlap min-ldiff min-udiff]
+                  :or   {min-ludiff  1
+                         min-overlap 1
+                         min-ldiff   1
+                         min-udiff   1}}]
+  {:pre  [(<= lower upper)
+          (<= 0 min-overlap)
+          (<= 0 min-ldiff)
+          (<= 0 min-udiff)]
+   :post [(every? (fn [ [[l1 u1] [l2 u2]] ]
+                    (and (<= lower l1)
+                      (<= u2 upper)
+                      (>= (- u1 l2) (dec min-overlap))
+                      (>= (- l2 l1) min-ldiff)
+                      (>= (- u2 u1) min-udiff))) %)]}
+  (mapcat (fn [ [l1 u1] ]
+            (map (fn [p2] [ [l1 u1] p2 ])
+                 (mapcat (fn [l2]
+                           (fixed-lower-pairs
+                             l2
+                             upper
+                             (max min-ludiff
+                                  (+ (- u1 l2) min-udiff))))
+                         (range (+ l1 min-ldiff) (+ (- u1 min-overlap) 2)))))
+          (ordered-pairs lower (- upper min-udiff) min-ludiff)))
 
 (defn find-two-remove-word [min-len wordlist]
   "Find a word w which can be used as an example for demonstrating the xform()
