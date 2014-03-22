@@ -62,19 +62,30 @@
                          (range (+ l1 min-ldiff) (+ (- u1 min-overlap) 2)))))
           (ordered-pairs lower (- upper min-udiff) min-ludiff)))
 
+(defn remove-sublist
+  "Returns lst without the items from index lower (inclusive) to upper
+  (exclusive)."
+  [lst lower upper]
+  {:pre [(<= 0 lower)
+         (<  lower upper)
+         (<= upper (count lst))]
+   :post [(= (count %) (- (count lst) (- upper lower)))]}
+  (concat (take lower lst) (drop upper lst)))
+
 (defn find-two-remove-word [min-len wordlist]
   "Find a word w which can be used as an example for demonstrating the xform()
   function working on two remove operations. w will be as follows:
 
     c0 c1 c2 c3 c4 c5 c6 c7 ... cn
 
-  where c0...cn (whole word) is in the wordlist and at least two derived words
+  where c0...cn (whole word) is in the wordlist and at least three derived
+  words
 
-    s1 = w0 \\ w(i1, j1)
+    s1 = w \\ w(i1, j1)
 
-    s2 = w0 \\ w(i2, j2)
+    s2 = w \\ w(i2, j2)
 
-    s0 = w0 \\ (s1 ∪ s2)
+    s0 = w \\ (s1 ∪ s2)
 
 
   are in the wordlist with i1 > 0, j1 > i, i2 < j1, j2 > i2, i2 < n. s1 and s2
@@ -82,10 +93,18 @@
 
   This means, we want a word from the wordlist from which one, the other and
   both subwords can be removed and the outcome is in the wordlist everytime."
-  (some (fn [[superword subword]]
-          (if-let [[first-part second-part] (find-overlap min-len wordlist subword)]
-            [superword subword first-part second-part]))
-        (repeatedly #(find-word-containing-word (inc min-len) wordlist))))
+  (some (fn [word]
+          (letfn [(find-word-without [l u]
+                    (find-word wordlist
+                               (apply str (remove-sublist word l (inc u)))))]
+            (some (fn [[[l1 u1] [l2 u2]]]
+                    (let [without-p1   (find-word-without l1 u1)
+                          without-p2   (find-word-without l2 u2)
+                          without-both (find-word-without l1 u2)]
+                        (if (and without-p1 without-p2 without-both)
+                          [word without-p1 without-p2 without-both])))
+                  (overlapping-pairs 1 (- (count word) 2)))))
+        (shuffle wordlist)))
 
 (defn -main
   "I don't do a whole lot ... yet."

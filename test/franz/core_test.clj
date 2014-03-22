@@ -29,3 +29,8 @@
            [[4 5] [5 6]]
            [[4 6] [5 6]]}
          (set (overlapping-pairs 3 6 :min-udiff 0)))))
+
+(deftest sublist-remove
+  (is (= [] (remove-sublist [0 1 2] 0 3)))
+  (is (= [0 2] (remove-sublist [0 1 2] 1 2)))
+  (is (= [0 1 7 8 9] (remove-sublist (range 10) 2 7))))
