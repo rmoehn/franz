@@ -1,9 +1,8 @@
 (ns franz.core
   (:gen-class))
 
-(def words ["abak" "abr" "abrakadabra" "bua" "cli" "kadab" "kadabr" "tul"])
 (def many-words (clojure.string/split-lines
-                  (slurp "/home/erle/Perl/franz/wordsEn.txt")))
+                  (slurp "/home/erle/Perl/franz/word-list.txt")))
 
 (defn find-word [wordlist word]
   "Returns word if it is contained in wordlist, otherwise nil. wordlist must
@@ -105,8 +104,3 @@
                           [word without-p1 without-p2 without-both])))
                   (overlapping-pairs 1 (- (count word) 2)))))
         (shuffle wordlist)))
-
-(defn -main
-  "I don't do a whole lot ... yet."
-  [& args]
-  (println "Hello, World!"))
